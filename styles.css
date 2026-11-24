@@ -69,14 +69,6 @@ a { color: inherit; text-decoration: none; }
 
 /* ---------- atmosphere ---------- */
 
-.grain-src {
-  position: fixed;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
 .grain {
   position: fixed;
   inset: -10%;
@@ -214,6 +206,26 @@ body::after {
 }
 
 .nav-links a:hover { color: var(--ink); }
+
+.lang-btn {
+  min-width: 2.5rem;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  padding: 0.42rem 0.72rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.lang-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
 
 .nav-cta {
   font-size: 0.78rem;
@@ -671,7 +683,7 @@ blockquote cite {
   font-family: var(--display);
   font-size: clamp(1.35rem, 2.7vw, 1.95rem);
   letter-spacing: 0.005em;
-  color: #8d8880;
+  color: #9c968c;
   margin: 0;
   text-align: center;
   transition: opacity 1.8s var(--ease), color 1.8s var(--ease),
@@ -679,6 +691,97 @@ blockquote cite {
 }
 
 .end-line.fade { opacity: 0.15; }
+
+/* ---------- the page notices when you stop ---------- */
+
+.idle-line {
+  position: fixed;
+  left: 50%;
+  bottom: 11vh;
+  z-index: 88;
+  margin: 0;
+  transform: translateX(-50%);
+  font-family: var(--display);
+  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+  color: var(--ink);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2.4s var(--ease);
+}
+
+.idle-line.on { opacity: 0.66; }
+
+/* ---------- sound ---------- */
+
+.sound-toggle {
+  position: fixed;
+  right: var(--pad);
+  bottom: 1.5rem;
+  z-index: 85;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.9rem 0.42rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.67rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 1.4s var(--ease), transform 1.4s var(--ease),
+              color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.is-stage-4 .sound-toggle,
+.is-stage-5 .sound-toggle,
+.is-stage-6 .sound-toggle {
+  opacity: 0.85;
+  transform: none;
+  pointer-events: auto;
+}
+
+.sound-toggle:hover { color: var(--ink); border-color: var(--ink); }
+
+.sound-ico {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 10px;
+}
+
+.sound-ico i {
+  display: block;
+  width: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.sound-ico i:nth-child(1) { height: 4px; }
+.sound-ico i:nth-child(2) { height: 9px; }
+.sound-ico i:nth-child(3) { height: 6px; }
+
+.sound-toggle.live .sound-ico i {
+  animation: meter 0.9s ease-in-out infinite alternate;
+}
+
+.sound-toggle.live .sound-ico i:nth-child(2) { animation-delay: 0.15s; }
+.sound-toggle.live .sound-ico i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes meter {
+  from { transform: scaleY(0.35); }
+  to   { transform: scaleY(1); }
+}
+
+.sound-toggle.gone {
+  opacity: 0;
+  pointer-events: none;
+}
 
 /* ---------- footer ---------- */
 
@@ -712,6 +815,37 @@ blockquote cite {
 .foot-copy { margin-left: auto; }
 .foot-link { opacity: 0.7; }
 .foot-link:hover { opacity: 1; }
+
+/* ---------- act 6: the cursor is gone ---------- */
+
+.is-stage-6,
+.is-stage-6 a,
+.is-stage-6 button { cursor: none; }
+
+/* ---------- act 7: the dark starts breathing ---------- */
+
+.is-stage-7 {
+  animation: darkBreath 9.5s ease-in-out infinite;
+}
+
+@keyframes darkBreath {
+  0%, 100% { background-color: #050506; }
+  50%      { background-color: #0f0f11; }
+}
+
+.is-stage-7 .presence {
+  animation: dotBreath 9.5s ease-in-out infinite;
+}
+
+@keyframes dotBreath {
+  0%, 100% { opacity: 0.82; }
+  50%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-stage-7,
+  .is-stage-7 .presence { animation: none; }
+}
 
 /* ---------- late-stage distortion ---------- */
 
@@ -768,7 +902,27 @@ blockquote cite {
   .collapse-lines .cl:nth-child(4) { margin-left: 1.6rem; }
 
   .rl { font-size: 0.92rem; line-height: 1.95; }
-  .nav-cta { margin-left: auto; }
+  .lang-btn {
+  min-width: 2.5rem;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  padding: 0.42rem 0.72rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.lang-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.nav-cta { margin-left: auto; }
 
   .act-hero { padding: 8rem 0 6rem; }
 
@@ -793,3 +947,79 @@ blockquote cite {
   .foot-inner { flex-wrap: wrap; gap: 0.9rem; }
   .foot-copy { margin-left: 0; }
 }
+
+
+/* ---------- chinese typography ---------- */
+/* CJK has no negative tracking and needs looser leading. The
+   headline is three characters long instead of nine, so it has
+   to get bigger to carry the same weight. */
+
+body[data-lang="zh"] { letter-spacing: 0.012em; }
+
+body[data-lang="zh"] .hero-title,
+body[data-lang="zh"] h2,
+body[data-lang="zh"] blockquote p,
+body[data-lang="zh"] .cl,
+body[data-lang="zh"] .end-line { letter-spacing: 0; }
+
+body[data-lang="zh"] .eyebrow,
+body[data-lang="zh"] .card-num,
+body[data-lang="zh"] .counter-label { letter-spacing: 0.09em; }
+
+body[data-lang="zh"] .hero-title {
+  font-size: clamp(4rem, 10.5vw, 7.4rem);
+  line-height: 1.02;
+}
+
+body[data-lang="zh"] h2 {
+  font-size: clamp(1.85rem, 4.2vw, 3rem);
+  line-height: 1.3;
+}
+
+body[data-lang="zh"] .act-access h2 {
+  font-size: clamp(2.1rem, 5.4vw, 3.8rem);
+}
+
+body[data-lang="zh"] .cl {
+  font-size: clamp(1.4rem, 3vw, 2.15rem);
+  line-height: 1.62;
+}
+
+body[data-lang="zh"] .end-line {
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
+}
+
+body[data-lang="zh"] blockquote p {
+  font-size: clamp(1.05rem, 1.8vw, 1.26rem);
+  line-height: 1.72;
+}
+
+body[data-lang="zh"] .rl {
+  font-size: clamp(0.88rem, 1.6vw, 1.05rem);
+  letter-spacing: 0.03em;
+}
+
+body[data-lang="zh"] .hero-lede,
+body[data-lang="zh"] .aside,
+body[data-lang="zh"] .lede { line-height: 1.9; }
+
+body[data-lang="zh"] .fineprint { letter-spacing: 0.02em; }
+
+/* off-register shadow reads as a smudge on dense CJK strokes,
+   so the Chinese version keeps a much lighter touch */
+body[data-lang="zh"] .cl.on {
+  text-shadow: 0.7px 0 0 rgba(168, 52, 44, 0.13),
+              -0.7px 0 0 rgba(44, 96, 148, 0.13);
+}
+
+body[data-lang="zh"].is-stage-6 .rl,
+body[data-lang="zh"].is-stage-7 .end-line {
+  text-shadow: none;
+}
+
+body[data-lang="zh"] .rl {
+  color: #cbc5b8;
+  letter-spacing: 0.07em;
+}
+
+body[data-lang="zh"] .rl:last-child { color: #b3ac9d; }

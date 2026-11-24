@@ -12,17 +12,9 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f7f6f2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%2317171a'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body class="is-stage-0">
+<body class="is-stage-0" data-lang="en">
 
 <!-- fixed atmosphere layers -->
-<svg class="grain-src" aria-hidden="true" focusable="false">
-  <filter id="grainFilter">
-    <feTurbulence type="fractalNoise" baseFrequency="0.82" numOctaves="4" stitchTiles="stitch"/>
-    <feColorMatrix type="saturate" values="0"/>
-  </filter>
-  <rect width="100%" height="100%" filter="url(#grainFilter)"></rect>
-</svg>
-
 <div class="grain" aria-hidden="true"></div>
 <div class="vignette" aria-hidden="true"></div>
 <div class="presence" id="presence" aria-hidden="true"></div>
@@ -30,15 +22,16 @@
 <header class="nav" id="nav">
   <a class="brand" href="#top">
     <span class="brand-dot" aria-hidden="true"></span>
-    <span class="brand-name">STILL</span>
+    <span class="brand-name" data-i18n="brand">STILL</span>
   </a>
   <nav class="nav-links" aria-label="Sections">
-    <a href="#method">Method</a>
-    <a href="#practice">Practice</a>
-    <a href="#voices">Voices</a>
-    <a href="#access">Access</a>
+    <a href="#method" data-i18n="nav.method">Method</a>
+    <a href="#practice" data-i18n="nav.practice">Practice</a>
+    <a href="#voices" data-i18n="nav.voices">Voices</a>
+    <a href="#access" data-i18n="nav.access">Access</a>
   </nav>
-  <a class="nav-cta" href="#method" id="navCta">Begin</a>
+  <button class="lang-btn" id="langBtn" type="button" aria-label="Switch language">中</button>
+  <a class="nav-cta" href="#method" id="navCta" data-i18n="nav.cta">Begin</a>
 </header>
 
 <main>
@@ -47,38 +40,38 @@
   <section class="act act-hero" id="top" data-stage="0">
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="wrap hero-inner">
-      <p class="eyebrow" id="heroEyebrow">Practice № 001</p>
-      <h1 class="hero-title" id="heroTitle">Sit still.</h1>
-      <p class="hero-lede" id="heroLede">A four-minute practice for people who cannot stop.</p>
-      <a class="btn" href="#method" id="heroCta">Begin</a>
-      <p class="fineprint" id="heroFine">No account. No streak. Nothing to lose.</p>
+      <p class="eyebrow" id="heroEyebrow" data-i18n="hero.eyebrow">Practice № 001</p>
+      <h1 class="hero-title" id="heroTitle" data-i18n="hero.title">Sit still.</h1>
+      <p class="hero-lede" id="heroLede" data-i18n="hero.lede">A four-minute practice for people who cannot stop.</p>
+      <a class="btn" href="#method" id="heroCta" data-i18n="hero.cta">Begin</a>
+      <p class="fineprint" id="heroFine" data-i18n="hero.fine">No account. No streak. Nothing to lose.</p>
     </div>
-    <div class="scroll-hint" aria-hidden="true"><span>scroll</span></div>
+    <div class="scroll-hint" aria-hidden="true"><span data-i18n="hero.scroll">scroll</span></div>
   </section>
 
   <!-- 1 -->
   <section class="act act-method" id="method" data-stage="1">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">The method</p>
-        <h2>Three movements.<br>Nothing else.</h2>
+        <p class="eyebrow" data-i18n="method.eyebrow">The method</p>
+        <h2 data-i18n="method.title" data-html>Three movements.<br>Nothing else.</h2>
       </div>
       <div class="cards">
         <article class="card">
           <span class="card-num">01</span>
-          <h3>Release</h3>
-          <p>Put it down. All of it. Whatever you are holding, set it on the floor beside you.</p>
+          <h3 data-i18n="method.c1t">Release</h3>
+          <p data-i18n="method.c1b">Put it down. All of it. Whatever you are holding, set it on the floor beside you.</p>
         </article>
         <article class="card">
           <span class="card-num">02</span>
-          <h3>Return</h3>
-          <p>When attention drifts, bring it back. That is the entire practice. There is no third step.</p>
+          <h3 data-i18n="method.c2t">Return</h3>
+          <p data-i18n="method.c2b">When attention drifts, bring it back. That is the entire practice. There is no third step.</p>
         </article>
         <article class="card" id="cardThree">
           <span class="card-num">03</span>
-          <h3>Remain</h3>
-          <p>Most people manage four minutes.</p>
-          <p class="card-after" id="cardAfter">Some stay longer.</p>
+          <h3 data-i18n="method.c3t">Remain</h3>
+          <p data-i18n="method.c3b">Most people manage four minutes.</p>
+          <p class="card-after" id="cardAfter" data-i18n="method.c3after">Some stay longer.</p>
         </article>
       </div>
     </div>
@@ -87,10 +80,10 @@
   <!-- 2 -->
   <section class="act act-numbers" id="practice" data-stage="2">
     <div class="wrap center">
-      <p class="eyebrow">In practice</p>
+      <p class="eyebrow" data-i18n="num.eyebrow">In practice</p>
       <p class="counter" id="counter">14,002,113</p>
-      <p class="counter-label" id="counterLabel">minutes held, all time</p>
-      <p class="aside" id="numbersAside">Every minute counted here belongs to a person who sat down and stopped.</p>
+      <p class="counter-label" id="counterLabel" data-i18n="num.labels.0">minutes held, all time</p>
+      <p class="aside" id="numbersAside" data-i18n="num.aside">Every minute counted here belongs to a person who sat down and stopped.</p>
     </div>
   </section>
 
@@ -98,25 +91,25 @@
   <section class="act act-voices" id="voices" data-stage="3">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">Voices</p>
-        <h2>Quiet, mostly.</h2>
+        <p class="eyebrow" data-i18n="voices.eyebrow">Voices</p>
+        <h2 data-i18n="voices.title">Quiet, mostly.</h2>
       </div>
       <div class="quotes">
         <blockquote class="q">
-          <p>I downloaded it to sleep. I sleep now.</p>
-          <cite>Mira K. &mdash; four months</cite>
+          <p data-i18n="voices.q1">I downloaded it to sleep. I sleep now.</p>
+          <cite data-i18n="voices.q1c">Mira K. — four months</cite>
         </blockquote>
         <blockquote class="q">
-          <p>Four minutes felt like a lot. It doesn&rsquo;t anymore.</p>
-          <cite>Halden R. &mdash; one year</cite>
+          <p data-i18n="voices.q2" data-html>Four minutes felt like a lot. It doesn&rsquo;t anymore.</p>
+          <cite data-i18n="voices.q2c">Halden R. — one year</cite>
         </blockquote>
-        <blockquote class="q q-off" id="quoteThree">
-          <p>She kept going. Past the third card. She read every word and did not stop to think about it.</p>
-          <cite>11.24</cite>
+        <blockquote class="q q-off">
+          <p data-i18n="voices.q3">She kept going. Past the third card. She read every word and did not stop to think about it.</p>
+          <cite data-i18n="voices.q3c">11.24</cite>
         </blockquote>
-        <blockquote class="q q-off" id="quoteFour">
-          <p>Does it feel longer to you too.</p>
-          <cite>11.24</cite>
+        <blockquote class="q q-off">
+          <p data-i18n="voices.q4">Does it feel longer to you too.</p>
+          <cite data-i18n="voices.q4c">11.24</cite>
         </blockquote>
       </div>
     </div>
@@ -125,11 +118,11 @@
   <!-- 4 -->
   <section class="act act-access" id="access" data-stage="4">
     <div class="wrap center">
-      <p class="eyebrow">Access</p>
-      <h2>Free, forever.</h2>
-      <p class="lede">One tier. No upgrade. No card.</p>
-      <a class="btn btn-ghost" href="#room" id="accessCta">Request access</a>
-      <p class="terms" id="terms">By requesting access you accept the terms of use. We do not sell your data. We do not send email. We will not contact you, ever.</p>
+      <p class="eyebrow" data-i18n="access.eyebrow">Access</p>
+      <h2 data-i18n="access.title">Free, forever.</h2>
+      <p class="lede" data-i18n="access.lede">One tier. No upgrade. No card.</p>
+      <a class="btn btn-ghost" href="#room" id="accessCta" data-i18n="access.cta">Request access</a>
+      <p class="terms" id="terms" data-i18n="access.terms">By requesting access you accept the terms of use. We do not sell your data. We do not send email. We will not contact you, ever.</p>
     </div>
   </section>
 
@@ -137,10 +130,10 @@
   <section class="act act-collapse" data-stage="5">
     <div class="collapse-sticky">
       <div class="collapse-lines" id="collapseLines">
-        <p class="cl">Is the page longer than it was.</p>
-        <p class="cl">You have been scrolling for a while now.</p>
-        <p class="cl">Nobody is stopping you.</p>
-        <p class="cl cl-final">That is the practice.</p>
+        <p class="cl" data-i18n="collapse.l1">Is the page longer than it was.</p>
+        <p class="cl" data-i18n="collapse.l2">You have been scrolling for a while now.</p>
+        <p class="cl" data-i18n="collapse.l3">Nobody is stopping you.</p>
+        <p class="cl cl-final" data-i18n="collapse.l4">That is the practice.</p>
       </div>
     </div>
   </section>
@@ -159,7 +152,7 @@
   <!-- 7 -->
   <section class="act act-end" data-stage="7">
     <div class="end-sticky">
-      <p class="end-line" id="endLine">You can stop now.</p>
+      <p class="end-line" id="endLine" data-i18n="end.stop">You can stop now.</p>
     </div>
   </section>
 
@@ -167,12 +160,20 @@
 
 <footer class="foot" id="foot">
   <div class="wrap foot-inner">
-    <span class="foot-brand">STILL</span>
-    <span class="foot-copy" id="footCopy">&copy; 2026 STILL Practice Ltd.</span>
-    <a class="foot-link" href="#top" id="footLink">Back to top</a>
+    <span class="foot-brand" data-i18n="brand">STILL</span>
+    <span class="foot-copy" id="footCopy" data-i18n="foot.copy" data-html>&copy; 2026 STILL Practice Ltd.</span>
+    <a class="foot-link" href="#top" id="footLink" data-i18n="foot.back">Back to top</a>
   </div>
 </footer>
 
+<p class="idle-line" id="idleLine" aria-hidden="true"></p>
+
+<button class="sound-toggle" id="soundToggle" type="button" aria-label="Sound">
+  <span class="sound-ico" aria-hidden="true"><i></i><i></i><i></i></span>
+  <span id="soundLabel" data-i18n="sound.label">sound?</span>
+</button>
+
+<script src="i18n.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

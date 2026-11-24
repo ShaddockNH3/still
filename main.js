@@ -1,22 +1,39 @@
 /* ============================================================
-   STILL
+   STILL / 常住
    The page counts what you do to it.
    ============================================================ */
 
 (() => {
   "use strict";
 
+  const I18N = window.STILL_I18N || {};
   const body = document.body;
   const root = document.documentElement;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-  const lerp = (a, b, t) => a + (b - a) * t;
+  const lerp = (a, b, k) => a + (b - a) * k;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   /* ----------------------------------------------------------
-     Deterministic randomness.
-     Corruption must look the same if you scroll back to it.
+     Language
+     ---------------------------------------------------------- */
+
+  const SUPPORTED = ["en", "zh"];
+
+  let lang = localStorage.getItem("still.lang");
+  if (!SUPPORTED.includes(lang)) {
+    const nav = (navigator.language || "en").toLowerCase();
+    lang = nav.startsWith("zh") ? "zh" : "en";
+  }
+
+  const t = (key) => {
+    const v = I18N[lang] ? I18N[lang][key] : undefined;
+    return v !== undefined ? v : I18N.en ? I18N.en[key] : "";
+  };
+
+  /* ----------------------------------------------------------
+     Deterministic randomness
      ---------------------------------------------------------- */
 
   const hashString = (str) => {
@@ -31,9 +48,9 @@
   const mulberry32 = (seed) => () => {
     seed |= 0;
     seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    let x = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
   };
 
   /* ----------------------------------------------------------
@@ -44,7 +61,6 @@
     presence: document.getElementById("presence"),
     counter: document.getElementById("counter"),
     counterLabel: document.getElementById("counterLabel"),
-    numbersAside: document.getElementById("numbersAside"),
     cardThree: document.getElementById("cardThree"),
     cardAfter: document.getElementById("cardAfter"),
     terms: document.getElementById("terms"),
@@ -60,6 +76,10 @@
     heroFine: document.getElementById("heroFine"),
     navCta: document.getElementById("navCta"),
     accessCta: document.getElementById("accessCta"),
+    langBtn: document.getElementById("langBtn"),
+    idleLine: document.getElementById("idleLine"),
+    soundToggle: document.getElementById("soundToggle"),
+    soundLabel: document.getElementById("soundLabel"),
   };
 
   const acts = [...document.querySelectorAll(".act")];
@@ -68,22 +88,7 @@
   const endSection = document.querySelector(".act-end");
 
   const SEEN_KEY = "still.returned";
-
-  /* ----------------------------------------------------------
-     The visitor has been here before
-     ---------------------------------------------------------- */
-
   const returned = sessionStorage.getItem(SEEN_KEY) === "1";
-
-  if (returned) {
-    el.heroEyebrow.textContent = "Practice № 002";
-    el.heroTitle.textContent = "You came back.";
-    el.heroLede.textContent = "It doesn't work like that. Nothing here begins.";
-    el.heroCta.textContent = "Continue";
-    el.heroFine.textContent = "You still have nothing to lose.";
-    el.navCta.textContent = "Continue";
-    el.accessCta.textContent = "You already have access";
-  }
 
   /* ----------------------------------------------------------
      Scroll state
@@ -95,15 +100,59 @@
   let totalScrolled = 0;
   let lastY = window.scrollY;
   let ticking = false;
+  let titleLocked = false;
+  let endPhase = 0;
 
-  const pageHeight = () =>
-    document.documentElement.scrollHeight - window.innerHeight;
+  const pageHeight = () => document.documentElement.scrollHeight - window.innerHeight;
+
+  /* ----------------------------------------------------------
+     Copy that depends on state
+     ---------------------------------------------------------- */
+
+  function applyReturned() {
+    el.heroEyebrow.textContent = t("ret.eyebrow");
+    el.heroTitle.textContent = t("ret.title");
+    el.heroLede.textContent = t("ret.lede");
+    el.heroCta.textContent = t("ret.cta");
+    el.heroFine.textContent = t("ret.fine");
+    el.navCta.textContent = t("ret.cta");
+    el.accessCta.textContent = t("ret.accessCta");
+  }
+
+  function applyCopy() {
+    document.querySelectorAll("[data-i18n]").forEach((node) => {
+      const key = node.dataset.i18n;
+      if (key.startsWith("num.labels")) return;
+      const v = t(key);
+      if (v === undefined || v === null || v === "") return;
+      if (node.hasAttribute("data-html")) node.innerHTML = v;
+      else node.textContent = v;
+    });
+  }
+
+  function refreshDynamic() {
+    const labels = t("num.labels");
+    if (Array.isArray(labels)) {
+      el.counterLabel.textContent = labels[stage] || labels[labels.length - 1];
+    }
+
+    if (el.terms.classList.contains("bad")) {
+      el.terms.textContent = t("access.termsBad");
+    }
+
+    if (returned) applyReturned();
+
+    el.endLine.textContent = endPhase >= 1 ? t("end.still") : t("end.stop");
+
+    if (progress > 0.93) el.footCopy.textContent = t("foot.copyEnd");
+
+    document.title = titleLocked ? t("title.still") : t("title.base");
+  }
 
   /* ----------------------------------------------------------
      The point that is always there
      ---------------------------------------------------------- */
 
-  // [progress, x%, y%, size px, opacity, blur px]
   const PRESENCE_KEYS = [
     [0.0, 66, 33, 2.0, 0.4, 0],
     [0.3, 65, 35, 3.0, 0.4, 0],
@@ -121,34 +170,23 @@
     const a = PRESENCE_KEYS[i];
     const b = PRESENCE_KEYS[i + 1];
     const span = b[0] - a[0] || 1;
-    const t = clamp((p - a[0]) / span);
+    const k = clamp((p - a[0]) / span);
 
     const s = el.presence.style;
-    s.setProperty("--px", lerp(a[1], b[1], t) + "%");
-    s.setProperty("--py", lerp(a[2], b[2], t) + "%");
-    s.setProperty("--ps", lerp(a[3], b[3], t).toFixed(2) + "px");
-    s.setProperty("--po", lerp(a[4], b[4], t).toFixed(3));
-    s.setProperty("--pb", lerp(a[5], b[5], t).toFixed(2) + "px");
+    s.setProperty("--px", lerp(a[1], b[1], k) + "%");
+    s.setProperty("--py", lerp(a[2], b[2], k) + "%");
+    s.setProperty("--ps", lerp(a[3], b[3], k).toFixed(2) + "px");
+    s.setProperty("--po", lerp(a[4], b[4], k).toFixed(3));
+    s.setProperty("--pb", lerp(a[5], b[5], k).toFixed(2) + "px");
   }
 
   /* ----------------------------------------------------------
-     Counter — it grows while you scroll, because you are scrolling
+     Counter
      ---------------------------------------------------------- */
 
   const BASE_COUNT = 14002113;
   let shownCount = BASE_COUNT;
   let targetCount = BASE_COUNT;
-
-  const LABELS = [
-    "minutes held, all time",
-    "minutes held, all time",
-    "and counting",
-    "and counting",
-    "these are not minutes",
-    "these were never minutes",
-    "each one is a scroll",
-    "each one is yours",
-  ];
 
   function renderCounter() {
     targetCount = BASE_COUNT + Math.floor(totalScrolled * 0.72);
@@ -158,8 +196,6 @@
 
   /* ----------------------------------------------------------
      Text corruption
-     Latin letters swapped for Cyrillic twins.
-     The word still reads. It just stops being the same word.
      ---------------------------------------------------------- */
 
   const CONFUSABLES = {
@@ -171,11 +207,10 @@
 
   const STAGE_PROBABILITY = [0, 0, 0, 0.01, 0.028, 0.052, 0.068, 0.068];
 
-  const originalText = new WeakMap();
+  const SKIP = "#counter, .rl, .brand, .btn, .foot, .nav, #endLine, .idle-line, .sound-toggle";
 
-  const SKIP_PARENTS = new Set([
-    "SCRIPT", "STYLE", "CODE", "PRE",
-  ]);
+  let originalText = new WeakMap();
+  let textNodes = [];
 
   function collectTextNodes() {
     const nodes = [];
@@ -187,15 +222,17 @@
     while ((n = walker.nextNode())) {
       const parent = n.parentElement;
       if (!parent) continue;
-      if (SKIP_PARENTS.has(parent.tagName)) continue;
-      if (parent.closest("#counter, .rl, .brand, .btn, .foot, .nav, #endLine")) continue;
+      if (parent.closest(SKIP)) continue;
       if (!n.nodeValue.trim()) continue;
       nodes.push(n);
     }
     return nodes;
   }
 
-  const textNodes = collectTextNodes();
+  function rebuildTextNodes() {
+    originalText = new WeakMap();
+    textNodes = collectTextNodes();
+  }
 
   function corruptText(level) {
     const prob = STAGE_PROBABILITY[level];
@@ -223,7 +260,7 @@
   }
 
   /* ----------------------------------------------------------
-     Stage switching
+     Stage
      ---------------------------------------------------------- */
 
   function setStage(next) {
@@ -232,19 +269,19 @@
 
     for (let i = 0; i < 8; i++) body.classList.toggle("is-stage-" + i, i === stage);
 
-    // once you are past the grey, the tab stops pretending
-    if (stage >= 6 && !document.title.startsWith("still")) {
-      document.title = "still here";
+    if (stage >= 6 && !titleLocked) {
+      titleLocked = true;
+      document.title = t("title.still");
     }
 
-    el.counterLabel.textContent = LABELS[stage] || LABELS[LABELS.length - 1];
+    const labels = t("num.labels");
+    if (Array.isArray(labels)) {
+      el.counterLabel.textContent = labels[stage] || labels[labels.length - 1];
+    }
 
     if (stage >= 5 && !el.terms.classList.contains("bad")) {
       el.terms.classList.add("bad");
-      el.terms.textContent =
-        "By continuing to scroll you accept something else. There is no account to cancel, " +
-        "because no account was ever created. There is no way to un-read this page. " +
-        "There is only this page, and you are still on it.";
+      el.terms.textContent = t("access.termsBad");
     }
 
     if (stage > maxStage) {
@@ -271,7 +308,7 @@
   cardObserver.observe(el.cardThree);
 
   /* ----------------------------------------------------------
-     Act 5 — the sentences arrive one at a time
+     Act 5
      ---------------------------------------------------------- */
 
   const COLLAPSE_AT = [0.04, 0.26, 0.5, 0.74];
@@ -281,12 +318,11 @@
     const span = r.height - window.innerHeight;
     const p = clamp(-r.top / span);
 
+    // once a sentence is up it stays up. nothing here can be un-read.
     el.collapseLines.forEach((line, i) => {
       if (p >= COLLAPSE_AT[i]) line.classList.add("on");
-      else if (p < COLLAPSE_AT[i] - 0.14) line.classList.remove("on");
     });
 
-    // the block drifts while you scroll — nothing here sits still
     if (el.collapseWrap) {
       const drift = (p - 0.5) * 11;
       const skew = (p - 0.5) * -1.1;
@@ -296,21 +332,30 @@
   }
 
   /* ----------------------------------------------------------
-     Act 6 — typing. Slow on purpose.
+     Act 6 — the terminal
      ---------------------------------------------------------- */
 
   let typing = false;
   let typedOnce = false;
+  let typeVersion = 0;
 
-  // The page lies about its own length. You will have scrolled further.
   function roomScript() {
-    const scrolled = Math.round(totalScrolled);
-    const claimed = Math.round((document.documentElement.scrollHeight * 0.4) / 100) * 100;
+    const digits = lang === "zh" ? "zh-CN" : "en-US";
+    const scrolled = Math.round(totalScrolled).toLocaleString(digits);
+    const claimed = (Math.round((document.documentElement.scrollHeight * 0.4) / 100) * 100)
+      .toLocaleString(digits);
     return [
-      `You scrolled ${scrolled.toLocaleString("en-US")} pixels.`,
-      `This page is ${claimed.toLocaleString("en-US")} pixels long.`,
-      "Whatever you are standing in is not the page.",
+      t("room.t1").replace("{n}", scrolled),
+      t("room.t2").replace("{m}", claimed),
+      t("room.t3"),
     ];
+  }
+
+  function resetRoom() {
+    typeVersion++;
+    typing = false;
+    typedOnce = false;
+    el.roomLines.forEach((l) => (l.textContent = ""));
   }
 
   async function typeAll() {
@@ -318,9 +363,11 @@
     typing = true;
     typedOnce = true;
 
+    const mine = typeVersion;
     const script = roomScript();
 
     for (let i = 0; i < el.roomLines.length; i++) {
+      if (mine !== typeVersion) { typing = false; return; }
       const line = el.roomLines[i];
       const full = script[i] || "";
       line.textContent = "";
@@ -332,6 +379,7 @@
       }
 
       for (const ch of full) {
+        if (mine !== typeVersion) { typing = false; return; }
         line.textContent += ch;
         await sleep(30 + Math.random() * 48);
       }
@@ -345,18 +393,14 @@
     const r = roomSection.getBoundingClientRect();
     if (-r.top > 40) typeAll();
 
-    // scrolled back above the room: let it play again on the next pass
     if (r.top > window.innerHeight * 0.9 && !typing) {
-      typedOnce = false;
-      el.roomLines.forEach((l) => (l.textContent = ""));
+      resetRoom();
     }
   }
 
   /* ----------------------------------------------------------
-     Act 7 — the last two sentences
+     Act 7
      ---------------------------------------------------------- */
-
-  let endPhase = 0;
 
   function renderEnd() {
     const r = endSection.getBoundingClientRect();
@@ -367,7 +411,7 @@
       endPhase = 1;
       el.endLine.classList.add("fade");
       setTimeout(() => {
-        el.endLine.textContent = "Still here.";
+        el.endLine.textContent = t("end.still");
         el.endLine.classList.remove("fade");
       }, 1000);
     }
@@ -377,6 +421,169 @@
       el.endLine.classList.add("fade");
     }
   }
+
+  /* ----------------------------------------------------------
+     It notices when you stop
+     ---------------------------------------------------------- */
+
+  let lastInput = Date.now();
+  let idleShown = 0;
+  let idleOn = false;
+  let idleHide = null;
+
+  function hideIdle() {
+    el.idleLine.classList.remove("on");
+    idleOn = false;
+  }
+
+  function noteInput() {
+    lastInput = Date.now();
+    if (idleOn) hideIdle();
+  }
+
+  function showIdle() {
+    idleOn = true;
+    idleShown++;
+    el.idleLine.textContent = t("idle." + Math.min(idleShown, 4));
+    el.idleLine.classList.add("on");
+    clearTimeout(idleHide);
+    idleHide = setTimeout(hideIdle, 5200);
+  }
+
+  setInterval(() => {
+    if (stage < 3 || stage > 5) return;
+    if (idleOn) return;
+    if (Date.now() - lastInput < 25000) return;
+    showIdle();
+  }, 800);
+
+  ["mousemove", "mousedown", "wheel", "keydown", "touchstart", "touchmove"].forEach((ev) =>
+    window.addEventListener(ev, noteInput, { passive: true })
+  );
+
+  /* ----------------------------------------------------------
+     Sound — synthesised, nothing to download
+     ---------------------------------------------------------- */
+
+  let audio = null;
+  let beatTimer = null;
+  let soundOn = false;
+
+  function startAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+
+    const ctx = new AC();
+    const master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(ctx.destination);
+
+    // two sines a few Hz apart, so the drone beats against itself
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 210;
+    lp.Q.value = 0.7;
+
+    const bed = ctx.createGain();
+    bed.gain.value = 0.42;
+
+    const o1 = ctx.createOscillator();
+    o1.type = "sine";
+    o1.frequency.value = 54.5;
+
+    const o2 = ctx.createOscillator();
+    o2.type = "sine";
+    o2.frequency.value = 57.3;
+
+    o1.connect(lp);
+    o2.connect(lp);
+    lp.connect(bed);
+    bed.connect(master);
+    o1.start();
+    o2.start();
+
+    // air
+    const len = Math.floor(ctx.sampleRate * 4);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.35;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    noise.loop = true;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 820;
+    bp.Q.value = 0.55;
+
+    const ng = ctx.createGain();
+    ng.gain.value = 0.018;
+
+    noise.connect(bp);
+    bp.connect(ng);
+    ng.connect(master);
+    noise.start();
+
+    return { ctx, master };
+  }
+
+  function thump() {
+    if (!audio) return;
+    const { ctx, master } = audio;
+    const now = ctx.currentTime;
+
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+
+    o.type = "sine";
+    o.frequency.setValueAtTime(82, now);
+    o.frequency.exponentialRampToValueAtTime(36, now + 0.2);
+
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.6, now + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+
+    o.connect(g);
+    g.connect(master);
+    o.start(now);
+    o.stop(now + 0.4);
+  }
+
+  function beatLoop() {
+    if (!audio) return;
+    thump();
+    const gap = lerp(1550, 700, clamp(progress * 1.15));
+    beatTimer = setTimeout(beatLoop, gap);
+  }
+
+  function updateAudioLevel() {
+    if (!audio) return;
+    const target = progress < 0.22 ? 0 : Math.min(0.045 + (progress - 0.22) * 0.135, 0.125);
+    audio.master.gain.setTargetAtTime(target, audio.ctx.currentTime, 0.7);
+  }
+
+  function enableSound() {
+    if (soundOn) return;
+    audio = audio || startAudio();
+    if (!audio) return;
+
+    // never block the UI on resume() — some environments leave it pending
+    if (audio.ctx.state === "suspended") {
+      audio.ctx.resume().catch(() => {});
+    }
+
+    soundOn = true;
+    updateAudioLevel();
+    if (!beatTimer) beatLoop();
+
+    el.soundToggle.classList.add("live");
+    el.soundLabel.textContent = t("sound.on");
+
+    setTimeout(() => el.soundToggle.classList.add("gone"), 1600);
+  }
+
+  el.soundToggle.addEventListener("click", enableSound);
 
   /* ----------------------------------------------------------
      Frame
@@ -392,8 +599,8 @@
 
     renderPresence(progress);
     renderCounter();
+    updateAudioLevel();
 
-    // which act is in the middle of the screen
     const mid = y + window.innerHeight * 0.45;
     let next = 0;
     for (const a of acts) {
@@ -409,8 +616,7 @@
     renderEnd();
 
     if (progress > 0.86) sessionStorage.setItem(SEEN_KEY, "1");
-
-    if (progress > 0.93) el.footCopy.innerHTML = "&copy; you";
+    if (progress > 0.93) el.footCopy.textContent = t("foot.copyEnd");
 
     ticking = false;
   }
@@ -422,10 +628,9 @@
     }
   }
 
-  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("scroll", () => { noteInput(); onScroll(); }, { passive: true });
   window.addEventListener("resize", onScroll, { passive: true });
 
-  // counter keeps easing toward its target even when scrolling stops
   setInterval(() => {
     const next = Math.round(lerp(shownCount, targetCount, 0.18));
     if (next !== shownCount) {
@@ -435,21 +640,46 @@
   }, 90);
 
   /* ----------------------------------------------------------
+     Language switching
+     ---------------------------------------------------------- */
+
+  function setLang(next) {
+    lang = SUPPORTED.includes(next) ? next : "en";
+    localStorage.setItem("still.lang", lang);
+
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    body.dataset.lang = lang;
+    el.langBtn.textContent = lang === "zh" ? "EN" : "中";
+
+    applyCopy();
+    rebuildTextNodes();
+    if (maxStage > 0) corruptText(maxStage);
+
+    resetRoom();
+    refreshDynamic();
+
+    // the terminal line counts pixels; rebuild it if we are standing there
+    if (stage >= 6) requestAnimationFrame(renderRoom);
+  }
+
+  el.langBtn.addEventListener("click", () => {
+    setLang(lang === "zh" ? "en" : "zh");
+    noteInput();
+  });
+
+  /* ----------------------------------------------------------
      Boot
      ---------------------------------------------------------- */
 
   if (reduceMotion) {
-    document.querySelector(".grain").style.animation = "none";
+    const g = document.querySelector(".grain");
+    if (g) g.style.animation = "none";
   }
 
-  if (!returned) {
-    window.scrollTo(0, 0);
-  }
+  setLang(lang);
+
+  if (!returned) window.scrollTo(0, 0);
 
   frame();
-
-  // after everything settles, measure once more
   window.addEventListener("load", frame);
-
-
 })();

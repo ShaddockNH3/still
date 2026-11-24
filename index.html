@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>STILL — Sit still. We'll do the rest.</title>
+<meta name="description" content="A four-minute practice for people who cannot stop.">
+<meta name="theme-color" content="#f7f6f2">
+<meta property="og:title" content="STILL — Sit still. We'll do the rest.">
+<meta property="og:description" content="A four-minute practice for people who cannot stop.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f7f6f2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%2317171a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="is-stage-0">
+
+<!-- fixed atmosphere layers -->
+<svg class="grain-src" aria-hidden="true" focusable="false">
+  <filter id="grainFilter">
+    <feTurbulence type="fractalNoise" baseFrequency="0.82" numOctaves="4" stitchTiles="stitch"/>
+    <feColorMatrix type="saturate" values="0"/>
+  </filter>
+  <rect width="100%" height="100%" filter="url(#grainFilter)"></rect>
+</svg>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="presence" id="presence" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top">
+    <span class="brand-dot" aria-hidden="true"></span>
+    <span class="brand-name">STILL</span>
+  </a>
+  <nav class="nav-links" aria-label="Sections">
+    <a href="#method">Method</a>
+    <a href="#practice">Practice</a>
+    <a href="#voices">Voices</a>
+    <a href="#access">Access</a>
+  </nav>
+  <a class="nav-cta" href="#method" id="navCta">Begin</a>
+</header>
+
+<main>
+
+  <!-- 0 -->
+  <section class="act act-hero" id="top" data-stage="0">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap hero-inner">
+      <p class="eyebrow" id="heroEyebrow">Practice № 001</p>
+      <h1 class="hero-title" id="heroTitle">Sit still.</h1>
+      <p class="hero-lede" id="heroLede">A four-minute practice for people who cannot stop.</p>
+      <a class="btn" href="#method" id="heroCta">Begin</a>
+      <p class="fineprint" id="heroFine">No account. No streak. Nothing to lose.</p>
+    </div>
+    <div class="scroll-hint" aria-hidden="true"><span>scroll</span></div>
+  </section>
+
+  <!-- 1 -->
+  <section class="act act-method" id="method" data-stage="1">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">The method</p>
+        <h2>Three movements.<br>Nothing else.</h2>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <span class="card-num">01</span>
+          <h3>Release</h3>
+          <p>Put it down. All of it. Whatever you are holding, set it on the floor beside you.</p>
+        </article>
+        <article class="card">
+          <span class="card-num">02</span>
+          <h3>Return</h3>
+          <p>When attention drifts, bring it back. That is the entire practice. There is no third step.</p>
+        </article>
+        <article class="card" id="cardThree">
+          <span class="card-num">03</span>
+          <h3>Remain</h3>
+          <p>Most people manage four minutes.</p>
+          <p class="card-after" id="cardAfter">Some stay longer.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="act act-numbers" id="practice" data-stage="2">
+    <div class="wrap center">
+      <p class="eyebrow">In practice</p>
+      <p class="counter" id="counter">14,002,113</p>
+      <p class="counter-label" id="counterLabel">minutes held, all time</p>
+      <p class="aside" id="numbersAside">Every minute counted here belongs to a person who sat down and stopped.</p>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="act act-voices" id="voices" data-stage="3">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Voices</p>
+        <h2>Quiet, mostly.</h2>
+      </div>
+      <div class="quotes">
+        <blockquote class="q">
+          <p>I downloaded it to sleep. I sleep now.</p>
+          <cite>Mira K. &mdash; four months</cite>
+        </blockquote>
+        <blockquote class="q">
+          <p>Four minutes felt like a lot. It doesn&rsquo;t anymore.</p>
+          <cite>Halden R. &mdash; one year</cite>
+        </blockquote>
+        <blockquote class="q q-off" id="quoteThree">
+          <p>She kept going. Past the third card. She read every word and did not stop to think about it.</p>
+          <cite>11.24</cite>
+        </blockquote>
+        <blockquote class="q q-off" id="quoteFour">
+          <p>Does it feel longer to you too.</p>
+          <cite>11.24</cite>
+        </blockquote>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="act act-access" id="access" data-stage="4">
+    <div class="wrap center">
+      <p class="eyebrow">Access</p>
+      <h2>Free, forever.</h2>
+      <p class="lede">One tier. No upgrade. No card.</p>
+      <a class="btn btn-ghost" href="#room" id="accessCta">Request access</a>
+      <p class="terms" id="terms">By requesting access you accept the terms of use. We do not sell your data. We do not send email. We will not contact you, ever.</p>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="act act-collapse" data-stage="5">
+    <div class="collapse-sticky">
+      <div class="collapse-lines" id="collapseLines">
+        <p class="cl">Is the page longer than it was.</p>
+        <p class="cl">You have been scrolling for a while now.</p>
+        <p class="cl">Nobody is stopping you.</p>
+        <p class="cl cl-final">That is the practice.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="act act-room" id="room" data-stage="6">
+    <div class="room-sticky">
+      <div class="room-lines" id="roomLines">
+        <p class="rl">You scrolled 11,204 pixels.</p>
+        <p class="rl">This page is 4,800 pixels long.</p>
+        <p class="rl">Whatever you are standing in is not the page.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="act act-end" data-stage="7">
+    <div class="end-sticky">
+      <p class="end-line" id="endLine">You can stop now.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot" id="foot">
+  <div class="wrap foot-inner">
+    <span class="foot-brand">STILL</span>
+    <span class="foot-copy" id="footCopy">&copy; 2026 STILL Practice Ltd.</span>
+    <a class="foot-link" href="#top" id="footLink">Back to top</a>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>

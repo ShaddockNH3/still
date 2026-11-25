@@ -10,10 +10,32 @@
   const body = document.body;
   const root = document.documentElement;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const bootTime = new Date();
 
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
   const lerp = (a, b, k) => a + (b - a) * k;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const fmtHHMM = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+  const NUM_FMT = {
+    en: new Intl.NumberFormat("en-US"),
+    zh: new Intl.NumberFormat("zh-CN"),
+  };
+
+  const STAGE_PAPERS = [
+    "#f7f6f2",
+    "#f5f3ee",
+    "#f1eee7",
+    "#ebe7de",
+    "#dcd7cc",
+    "#bdb7aa",
+    "#1c1b19",
+    "#050506",
+  ];
+
+  const DARK_FAVICON =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050506'/%3E%3Ccircle cx='16' cy='16' r='3.2' fill='%23cfc9bd'/%3E%3C/svg%3E";
 
   /* ----------------------------------------------------------
      Language
@@ -21,7 +43,12 @@
 
   const SUPPORTED = ["en", "zh"];
 
-  let lang = localStorage.getItem("still.lang");
+  let lang = null;
+  try {
+    lang = localStorage.getItem("still.lang");
+  } catch (_) {
+    /* ignore storage restrictions */
+  }
   if (!SUPPORTED.includes(lang)) {
     const nav = (navigator.language || "en").toLowerCase();
     lang = nav.startsWith("zh") ? "zh" : "en";
@@ -54,7 +81,7 @@
   };
 
   /* ----------------------------------------------------------
-     Elements
+     Elements & session state
      ---------------------------------------------------------- */
 
   const el = {
@@ -63,11 +90,21 @@
     counterLabel: document.getElementById("counterLabel"),
     cardThree: document.getElementById("cardThree"),
     cardAfter: document.getElementById("cardAfter"),
+    c1t: document.querySelector('[data-i18n="method.c1t"]'),
+    c1b: document.querySelector('[data-i18n="method.c1b"]'),
+    c2t: document.querySelector('[data-i18n="method.c2t"]'),
+    c2b: document.querySelector('[data-i18n="method.c2b"]'),
+    c3t: document.querySelector('[data-i18n="method.c3t"]'),
+    c3b: document.querySelector('[data-i18n="method.c3b"]'),
+    q3: document.querySelector('[data-i18n="voices.q3"]'),
+    q3c: document.querySelector('[data-i18n="voices.q3c"]'),
+    q4c: document.querySelector('[data-i18n="voices.q4c"]'),
     terms: document.getElementById("terms"),
     collapseLines: [...document.querySelectorAll(".cl")],
     collapseWrap: document.getElementById("collapseLines"),
     roomLines: [...document.querySelectorAll(".rl")],
     endLine: document.getElementById("endLine"),
+    mirrorHint: document.getElementById("mirrorHint"),
     footCopy: document.getElementById("footCopy"),
     heroEyebrow: document.getElementById("heroEyebrow"),
     heroTitle: document.getElementById("heroTitle"),
@@ -81,9 +118,12 @@
     soundToggle: document.getElementById("soundToggle"),
     soundLabel: document.getElementById("soundLabel"),
     jump: document.getElementById("jump"),
+    themeColor: document.getElementById("themeColor"),
+    favicon: document.getElementById("favicon"),
   };
 
   const acts = [...document.querySelectorAll(".act")];
+  const accessSection = document.querySelector(".act-access");
   const collapseSection = document.querySelector(".act-collapse");
   const roomSection = document.querySelector(".act-room");
   const endSection = document.querySelector(".act-end");
@@ -91,11 +131,27 @@
   const SEEN_KEY = "still.returned";
   const FACE_KEY = "still.seen";
 
-  let returned = sessionStorage.getItem(SEEN_KEY) === "1";
-  let seenFace = sessionStorage.getItem(FACE_KEY) === "1";
+  const readSession = (key) => {
+    try {
+      return sessionStorage.getItem(key) === "1";
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const writeSession = (key, val) => {
+    try {
+      sessionStorage.setItem(key, val);
+    } catch (_) {
+      /* ignore */
+    }
+  };
+
+  let returned = readSession(SEEN_KEY);
+  let seenFace = readSession(FACE_KEY);
 
   /* ----------------------------------------------------------
-     Scroll state
+     Scroll & non-euclidean scrollbar state
      ---------------------------------------------------------- */
 
   let progress = 0;
@@ -105,23 +161,90 @@
   let lastY = window.scrollY;
   let ticking = false;
   let titleLocked = false;
+  let cardsMutated = false;
   let endPhase = 0;
   let jumped = false;
   let jumpArmed = false;
 
-  const pageHeight = () => document.documentElement.scrollHeight - window.innerHeight;
+  // Progressive abyss unlocking: scrollbar reaches ~90% at Act 4, then snaps backward 3 times
+  let abyssLevel = 0;
+  let fullScrollSpan = 1;
+  let initialPagePixels = 4800;
+
+  const rawPageSpan = () =>
+    Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+
+  function measureMetrics() {
+    const wasLocked = body.classList.contains("abyss-locked");
+    if (wasLocked) body.classList.remove("abyss-locked");
+    fullScrollSpan = rawPageSpan();
+    if (wasLocked) body.classList.add("abyss-locked");
+
+    if (abyssLevel === 0 && body.classList.contains("abyss-locked")) {
+      initialPagePixels = document.documentElement.scrollHeight;
+    }
+  }
+
+  function unlockAbyss(level) {
+    if (level <= abyssLevel) return;
+    for (let lv = abyssLevel + 1; lv <= level; lv++) {
+      body.classList.add("abyss-" + lv);
+    }
+    abyssLevel = level;
+    if (abyssLevel >= 3) {
+      body.classList.remove("abyss-locked");
+      fullScrollSpan = rawPageSpan();
+    }
+  }
 
   /* ----------------------------------------------------------
-     Copy that depends on state
+     Environment-aware surveillance & stateful copy
      ---------------------------------------------------------- */
 
+  function applyVoicesContext() {
+    if (!el.q3 || !el.q3c || !el.q4c) return;
+
+    const isMobile =
+      window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
+    const hour = bootTime.getHours();
+    const isNight = hour >= 20 || hour < 5;
+
+    const q3Key = isNight
+      ? isMobile
+        ? "voices.q3_night_mobile"
+        : "voices.q3_night_desktop"
+      : isMobile
+        ? "voices.q3_day_mobile"
+        : "voices.q3_day_desktop";
+
+    const twoMinAgo = new Date(bootTime.getTime() - 2 * 60 * 1000);
+    const justNow = new Date(bootTime.getTime() - 40 * 1000);
+
+    el.q3.textContent = t(q3Key) || t("voices.q3");
+    el.q3c.textContent = t("voices.timeAgo2").replace("{t}", fmtHHMM(twoMinAgo));
+    el.q4c.textContent = t("voices.timeJustNow").replace("{t}", fmtHHMM(justNow));
+  }
+
+  function applyMutatedCards() {
+    if (!cardsMutated) return;
+    if (el.c1t) el.c1t.textContent = t("method.bad1t");
+    if (el.c1b) el.c1b.textContent = t("method.bad1b");
+    if (el.c2t) el.c2t.textContent = t("method.bad2t");
+    if (el.c2b) el.c2b.textContent = t("method.bad2b");
+    if (el.c3t) el.c3t.textContent = t("method.bad3t");
+    if (el.c3b) el.c3b.textContent = t("method.bad3b");
+    if (el.cardAfter) {
+      el.cardAfter.textContent = t("method.bad3after");
+      el.cardAfter.classList.add("on");
+    }
+  }
+
   function applyReturned() {
+    el.heroEyebrow.textContent = t("ret.eyebrow");
     if (seenFace) {
-      el.heroEyebrow.textContent = t("ret.eyebrow");
       el.heroTitle.textContent = t("seen.title");
       el.heroLede.textContent = t("seen.lede");
     } else {
-      el.heroEyebrow.textContent = t("ret.eyebrow");
       el.heroTitle.textContent = t("ret.title");
       el.heroLede.textContent = t("ret.lede");
     }
@@ -143,6 +266,9 @@
   }
 
   function refreshDynamic() {
+    applyVoicesContext();
+    applyMutatedCards();
+
     const labels = t("num.labels");
     if (Array.isArray(labels)) {
       el.counterLabel.textContent = labels[stage] || labels[labels.length - 1];
@@ -156,11 +282,18 @@
 
     el.endLine.textContent = jumped
       ? t("face.after")
-      : endPhase >= 1 ? t("end.still") : t("end.stop");
+      : endPhase >= 1
+        ? t("end.still")
+        : t("end.stop");
+
+    if (el.mirrorHint) el.mirrorHint.textContent = t("end.mirror");
 
     if (progress > 0.93) el.footCopy.textContent = t("foot.copyEnd");
 
-    document.title = titleLocked ? t("title.still") : t("title.base");
+    el.soundLabel.textContent = soundOn ? t("sound.on") : t("sound.label");
+    if (!document.hidden) {
+      document.title = titleLocked ? t("title.still") : t("title.base");
+    }
   }
 
   /* ----------------------------------------------------------
@@ -195,33 +328,58 @@
   }
 
   /* ----------------------------------------------------------
-     Counter
+     Counter — only runs an animation loop while catching up
      ---------------------------------------------------------- */
 
   const BASE_COUNT = 14002113;
   let shownCount = BASE_COUNT;
   let targetCount = BASE_COUNT;
+  let counterRaf = 0;
 
-  function renderCounter() {
-    targetCount = BASE_COUNT + Math.floor(totalScrolled * 0.72);
-    shownCount = Math.round(lerp(shownCount, targetCount, 0.22));
-    el.counter.textContent = shownCount.toLocaleString("en-US");
+  function stepCounter() {
+    counterRaf = 0;
+    const diff = targetCount - shownCount;
+    if (diff === 0) return;
+
+    const delta = Math.sign(diff) * Math.max(1, Math.round(Math.abs(diff) * 0.2));
+    shownCount += delta;
+    el.counter.textContent = NUM_FMT.en.format(shownCount);
+
+    if (shownCount !== targetCount) {
+      counterRaf = requestAnimationFrame(stepCounter);
+    }
+  }
+
+  function updateCounterTarget() {
+    const nextTarget = BASE_COUNT + Math.floor(totalScrolled * 0.72);
+    if (nextTarget !== targetCount) {
+      targetCount = nextTarget;
+      if (!counterRaf) counterRaf = requestAnimationFrame(stepCounter);
+    }
   }
 
   /* ----------------------------------------------------------
-     Text corruption
+     Text corruption (Latin homoglyphs + CJK visual near-twins)
      ---------------------------------------------------------- */
 
-  const CONFUSABLES = {
+  const LATIN_CONFUSABLES = {
     a: "а", e: "е", o: "о", i: "і", c: "с", p: "р",
     x: "х", y: "у", s: "ѕ", j: "ј",
     A: "А", E: "Е", O: "О", C: "С", P: "Р",
     X: "Х", S: "Ѕ", Y: "У",
   };
 
+  // Subtle stroke-level uncanny valley in Chinese (e.g. 人→入, 自/日→目, 话→活, 睡→瞳)
+  const CJK_CONFUSABLES = {
+    人: "入", 己: "已", 已: "巳", 自: "目", 日: "目",
+    白: "百", 天: "夭", 大: "太", 话: "活", 睡: "瞳",
+    眼: "眠", 住: "往", 停: "佇", 心: "必", 未: "末", 免: "兔",
+  };
+
   const STAGE_PROBABILITY = [0, 0, 0, 0.01, 0.028, 0.052, 0.068, 0.068];
 
-  const SKIP = "#counter, .rl, .brand, .btn, .foot, .nav, #endLine, .idle-line, .sound-toggle";
+  const SKIP =
+    "#counter, .rl, .brand, .btn, .foot, .nav, #endLine, #mirrorHint, .idle-line, .sound-toggle";
 
   let originalText = new WeakMap();
   let textNodes = [];
@@ -235,8 +393,7 @@
     let n;
     while ((n = walker.nextNode())) {
       const parent = n.parentElement;
-      if (!parent) continue;
-      if (parent.closest(SKIP)) continue;
+      if (!parent || parent.closest(SKIP)) continue;
       if (!n.nodeValue.trim()) continue;
       nodes.push(n);
     }
@@ -249,10 +406,15 @@
   }
 
   function corruptText(level) {
-    const prob = STAGE_PROBABILITY[level];
-    if (prob <= 0) return;
+    const baseProb = STAGE_PROBABILITY[level] || 0;
+    if (baseProb <= 0) return;
+
+    const isZh = lang === "zh";
+    const map = isZh ? CJK_CONFUSABLES : LATIN_CONFUSABLES;
+    const prob = isZh ? Math.min(baseProb * 2.1, 0.15) : baseProb;
 
     for (const node of textNodes) {
+      if (!node.isConnected) continue;
       if (!originalText.has(node)) originalText.set(node, node.nodeValue);
       const original = originalText.get(node);
 
@@ -261,8 +423,8 @@
       let changed = false;
 
       for (const ch of original) {
-        if (CONFUSABLES[ch] && rand() < prob) {
-          out += CONFUSABLES[ch];
+        if (map[ch] && rand() < prob) {
+          out += map[ch];
           changed = true;
         } else {
           out += ch;
@@ -283,9 +445,14 @@
 
     for (let i = 0; i < 8; i++) body.classList.toggle("is-stage-" + i, i === stage);
 
+    if (el.themeColor && STAGE_PAPERS[stage]) {
+      el.themeColor.setAttribute("content", STAGE_PAPERS[stage]);
+    }
+
     if (stage >= 6 && !titleLocked) {
       titleLocked = true;
-      document.title = t("title.still");
+      if (!document.hidden) document.title = t("title.still");
+      if (el.favicon) el.favicon.href = DARK_FAVICON;
     }
 
     const labels = t("num.labels");
@@ -293,15 +460,33 @@
       el.counterLabel.textContent = labels[stage] || labels[labels.length - 1];
     }
 
+    let domRewritten = false;
+
     if (stage >= 5 && !el.terms.classList.contains("bad")) {
       el.terms.classList.add("bad");
       el.terms.textContent = t("access.termsBad");
+      domRewritten = true;
+    }
+
+    // Once you sink into stage 5+, the three calm method cards at the top mutate behind you
+    if (stage >= 5 && !cardsMutated) {
+      cardsMutated = true;
+      applyMutatedCards();
+      domRewritten = true;
+    }
+
+    if (domRewritten) {
+      rebuildTextNodes();
     }
 
     if (stage > maxStage) {
       maxStage = stage;
       corruptText(maxStage);
+    } else if (domRewritten && maxStage > 0) {
+      corruptText(maxStage);
     }
+
+    scheduleIdleCheck();
   }
 
   /* ----------------------------------------------------------
@@ -322,22 +507,47 @@
   cardObserver.observe(el.cardThree);
 
   /* ----------------------------------------------------------
+     Upward scroll resistance: easy to sink, heavy to climb out
+     ---------------------------------------------------------- */
+
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (e.deltaY < 0 && stage >= 5 && stage <= 6 && !jumped && !e.ctrlKey) {
+        e.preventDefault();
+        window.scrollBy(0, e.deltaY * 0.36);
+      }
+    },
+    { passive: false }
+  );
+
+  // Ensure clicking "#room" CTA unlocks the abyss before anchor navigation
+  if (el.accessCta) {
+    el.accessCta.addEventListener("click", () => {
+      unlockAbyss(2);
+    });
+  }
+
+  /* ----------------------------------------------------------
      Act 5
      ---------------------------------------------------------- */
 
   const COLLAPSE_AT = [0.04, 0.26, 0.5, 0.74];
 
   function renderCollapse() {
+    if (abyssLevel < 1) return;
     const r = collapseSection.getBoundingClientRect();
-    const span = r.height - window.innerHeight;
+    const span = Math.max(r.height - window.innerHeight, 1);
     const p = clamp(-r.top / span);
+
+    if (p > 0.52 && abyssLevel < 2) unlockAbyss(2);
 
     // once a sentence is up it stays up. nothing here can be un-read.
     el.collapseLines.forEach((line, i) => {
       if (p >= COLLAPSE_AT[i]) line.classList.add("on");
     });
 
-    if (el.collapseWrap) {
+    if (el.collapseWrap && !reduceMotion) {
       const drift = (p - 0.5) * 11;
       const skew = (p - 0.5) * -1.1;
       el.collapseWrap.style.transform =
@@ -354,13 +564,21 @@
   let typeVersion = 0;
 
   function roomScript() {
-    const digits = lang === "zh" ? "zh-CN" : "en-US";
-    const scrolled = Math.round(totalScrolled).toLocaleString(digits);
-    const claimed = (Math.round((document.documentElement.scrollHeight * 0.4) / 100) * 100)
-      .toLocaleString(digits);
+    const fmt = NUM_FMT[lang] || NUM_FMT.en;
+    const rawClaimed = Math.max(
+      2800,
+      Math.round(initialPagePixels / 100) * 100
+    );
+    const observed = Math.max(Math.round(totalScrolled), Math.round(window.scrollY));
+    const claimedNum =
+      observed > rawClaimed + 800
+        ? rawClaimed
+        : Math.max(1200, Math.floor((observed * 0.52) / 100) * 100);
+    const scrolledNum = Math.max(observed, claimedNum + 1604);
+
     return [
-      t("room.t1").replace("{n}", scrolled),
-      t("room.t2").replace("{m}", claimed),
+      t("room.t1").replace("{n}", fmt.format(scrolledNum)),
+      t("room.t2").replace("{m}", fmt.format(claimedNum)),
       t("room.t3"),
     ];
   }
@@ -381,7 +599,10 @@
     const script = roomScript();
 
     for (let i = 0; i < el.roomLines.length; i++) {
-      if (mine !== typeVersion) { typing = false; return; }
+      if (mine !== typeVersion) {
+        typing = false;
+        return;
+      }
       const line = el.roomLines[i];
       const full = script[i] || "";
       line.textContent = "";
@@ -393,7 +614,10 @@
       }
 
       for (const ch of full) {
-        if (mine !== typeVersion) { typing = false; return; }
+        if (mine !== typeVersion) {
+          typing = false;
+          return;
+        }
         line.textContent += ch;
         await sleep(30 + Math.random() * 48);
       }
@@ -404,7 +628,9 @@
   }
 
   function renderRoom() {
+    if (abyssLevel < 2) return;
     const r = roomSection.getBoundingClientRect();
+    if (r.top < window.innerHeight * 0.65 && abyssLevel < 3) unlockAbyss(3);
     if (-r.top > 40) typeAll();
 
     if (r.top > window.innerHeight * 0.9 && !typing) {
@@ -413,73 +639,165 @@
   }
 
   /* ----------------------------------------------------------
-     Act 7
+     Act 7 — black mirror lure -> jump
      ---------------------------------------------------------- */
 
+  let mirrorTimer = null;
+
   function renderEnd() {
+    if (abyssLevel < 3) return;
     const r = endSection.getBoundingClientRect();
-    const span = r.height - window.innerHeight;
+    const span = Math.max(r.height - window.innerHeight, 1);
     const p = clamp(-r.top / span);
 
-    if (endPhase === 0 && p > 0.34) {
+    if (endPhase === 0 && p > 0.3) {
       endPhase = 1;
       el.endLine.classList.add("fade");
       setTimeout(() => {
-        el.endLine.textContent = t("end.still");
-        el.endLine.classList.remove("fade");
-      }, 1000);
+        if (!jumped && endPhase === 1) {
+          el.endLine.textContent = t("end.still");
+          el.endLine.classList.remove("fade");
+        }
+      }, 950);
     }
 
-    if (endPhase === 1 && p > 0.72) {
+    if (endPhase === 1 && p > 0.66) {
       endPhase = 2;
       el.endLine.classList.add("fade");
+      if (!jumped) {
+        body.classList.add("is-mirror");
+        clearTimeout(mirrorTimer);
+        mirrorTimer = setTimeout(() => {
+          if (!jumped && el.mirrorHint) el.mirrorHint.classList.add("on");
+        }, 900);
+      }
     }
 
-    // you reached the end. it gives you three seconds to feel safe.
-    if (!jumpArmed && !jumped && !seenFace && endPhase === 2 && p > 0.8) {
+    // Pure black glass + tiny dim text makes you lean closer to your reflection first
+    if (!jumpArmed && !jumped && endPhase === 2 && p > 0.76) {
       jumpArmed = true;
-      setTimeout(triggerJump, 3600);
+      setTimeout(triggerJump, 3400);
     }
   }
 
   /* ----------------------------------------------------------
-     It notices when you stop
+     Bottom whispers (idle detection, tab-switch catch, copy hijack)
      ---------------------------------------------------------- */
 
-  let lastInput = Date.now();
+  const IDLE_WAIT_MS = 25000;
   let idleShown = 0;
   let idleOn = false;
+  let idleTimer = null;
   let idleHide = null;
 
-  function hideIdle() {
+  function hideWhisper() {
     el.idleLine.classList.remove("on");
     idleOn = false;
   }
 
-  function noteInput() {
-    lastInput = Date.now();
-    if (idleOn) hideIdle();
+  function flashWhisper(text, duration = 5000) {
+    if (!text || jumped) return;
+    idleOn = true;
+    el.idleLine.textContent = text;
+    el.idleLine.classList.add("on");
+    clearTimeout(idleHide);
+    idleHide = setTimeout(() => {
+      hideWhisper();
+      scheduleIdleCheck();
+    }, duration);
   }
 
   function showIdle() {
-    idleOn = true;
+    if (stage < 3 || stage > 5 || idleOn || document.hidden) return;
     idleShown++;
-    el.idleLine.textContent = t("idle." + Math.min(idleShown, 4));
-    el.idleLine.classList.add("on");
-    clearTimeout(idleHide);
-    idleHide = setTimeout(hideIdle, 5200);
+    flashWhisper(t("idle." + Math.min(idleShown, 4)), 5200);
   }
 
-  setInterval(() => {
-    if (stage < 3 || stage > 5) return;
-    if (idleOn) return;
-    if (Date.now() - lastInput < 25000) return;
-    showIdle();
-  }, 800);
+  function scheduleIdleCheck() {
+    clearTimeout(idleTimer);
+    if (stage >= 3 && stage <= 5 && !idleOn && !document.hidden) {
+      idleTimer = setTimeout(showIdle, IDLE_WAIT_MS);
+    }
+  }
 
-  ["mousemove", "mousedown", "wheel", "keydown", "touchstart", "touchmove"].forEach((ev) =>
-    window.addEventListener(ev, noteInput, { passive: true })
+  function noteInput() {
+    if (idleOn) hideWhisper();
+    scheduleIdleCheck();
+  }
+
+  ["mousemove", "mousedown", "wheel", "keydown", "touchstart", "touchmove"].forEach(
+    (ev) => window.addEventListener(ev, noteInput, { passive: true })
   );
+
+  /* ----------------------------------------------------------
+     Tab visibility trap: notices when you switch tabs to escape
+     ---------------------------------------------------------- */
+
+  let tabLeftAt = 0;
+  let tabAwayTimer = null;
+  let tabAwayIdx = 0;
+  let tabSwitchCount = 0;
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearTimeout(idleTimer);
+      if ((stage >= 4 || maxStage >= 4) && !jumped) {
+        tabLeftAt = Date.now();
+        tabAwayIdx = 0;
+        const seq = t("tab.away");
+        if (Array.isArray(seq) && seq.length) {
+          document.title = seq[0];
+          clearInterval(tabAwayTimer);
+          tabAwayTimer = setInterval(() => {
+            tabAwayIdx = (tabAwayIdx + 1) % seq.length;
+            document.title = seq[tabAwayIdx];
+          }, 2200);
+        }
+      }
+    } else {
+      clearInterval(tabAwayTimer);
+      tabAwayTimer = null;
+      document.title = titleLocked ? t("title.still") : t("title.base");
+
+      if (tabLeftAt > 0 && !jumped) {
+        const awayMs = Date.now() - tabLeftAt;
+        tabLeftAt = 0;
+        if (awayMs >= 1500) {
+          tabSwitchCount++;
+          if (abyssLevel < 1) unlockAbyss(1);
+          const creep = Math.min(340, 140 + Math.round(awayMs * 0.025));
+          window.scrollBy({ top: creep, behavior: "smooth" });
+          setTimeout(() => {
+            flashWhisper(
+              t(tabSwitchCount === 1 ? "tab.back1" : "tab.back2"),
+              5200
+            );
+          }, 450);
+        }
+      }
+      scheduleIdleCheck();
+    }
+  });
+
+  /* ----------------------------------------------------------
+     Clipboard contamination: copying text passes it on
+     ---------------------------------------------------------- */
+
+  document.addEventListener("copy", (e) => {
+    if (stage < 3 && maxStage < 4) return;
+    const sel = window.getSelection ? window.getSelection().toString().trim() : "";
+    if (!sel || !e.clipboardData) return;
+
+    e.preventDefault();
+    const cleanUrl = window.location.href.split("#")[0];
+    const payload =
+      stage >= 5 || maxStage >= 5
+        ? t("copy.deep").replace("{url}", cleanUrl)
+        : t("copy.mid").replace("{text}", sel);
+
+    e.clipboardData.setData("text/plain", payload);
+    flashWhisper(t("copy.notice"), 4800);
+  });
 
   /* ----------------------------------------------------------
      Sound — synthesised, nothing to download
@@ -548,8 +866,20 @@
     return { ctx, master };
   }
 
+  // Unlock AudioContext on first user gesture so late-stage audio isn't blocked by autoplay policy
+  function unlockAudioOnce() {
+    if (!audio) audio = startAudio();
+    if (audio && audio.ctx.state === "suspended") {
+      audio.ctx.resume().catch(() => {});
+    }
+  }
+
+  ["pointerdown", "keydown"].forEach((ev) =>
+    window.addEventListener(ev, unlockAudioOnce, { once: true, passive: true })
+  );
+
   function thump() {
-    if (!audio) return;
+    if (!audio || !soundOn || jumped) return;
     const { ctx, master } = audio;
     const now = ctx.currentTime;
 
@@ -571,15 +901,19 @@
   }
 
   function beatLoop() {
-    if (!audio) return;
+    if (!audio || !soundOn || jumped) {
+      beatTimer = null;
+      return;
+    }
     thump();
     const gap = lerp(1550, 700, clamp(progress * 1.15));
     beatTimer = setTimeout(beatLoop, gap);
   }
 
   function updateAudioLevel() {
-    if (!audio) return;
-    const target = progress < 0.22 ? 0 : Math.min(0.045 + (progress - 0.22) * 0.135, 0.125);
+    if (!audio || !soundOn || jumped) return;
+    const target =
+      progress < 0.22 ? 0 : Math.min(0.045 + (progress - 0.22) * 0.135, 0.125);
     audio.master.gain.setTargetAtTime(target, audio.ctx.currentTime, 0.7);
   }
 
@@ -588,7 +922,6 @@
     audio = audio || startAudio();
     if (!audio) return;
 
-    // never block the UI on resume() — some environments leave it pending
     if (audio.ctx.state === "suspended") {
       audio.ctx.resume().catch(() => {});
     }
@@ -612,7 +945,6 @@
   function scream() {
     let ctx = audio ? audio.ctx : null;
 
-    // it makes its own sound whether or not you asked for any
     if (!ctx) {
       const made = startAudio();
       if (!made) return;
@@ -674,13 +1006,19 @@
   function triggerJump() {
     if (jumped) return;
     if (document.hidden) {
-      setTimeout(triggerJump, 1500);
+      setTimeout(triggerJump, 1200);
       return;
     }
 
     jumped = true;
     seenFace = true;
-    sessionStorage.setItem(FACE_KEY, "1");
+    writeSession(FACE_KEY, "1");
+
+    clearTimeout(beatTimer);
+    clearTimeout(mirrorTimer);
+    beatTimer = null;
+
+    if (el.mirrorHint) el.mirrorHint.classList.remove("on");
 
     // everything goes quiet for one beat first. that is the part that works.
     if (audio) {
@@ -695,7 +1033,8 @@
 
       setTimeout(() => {
         el.jump.classList.remove("on");
-        document.body.classList.add("is-seen");
+        body.classList.remove("is-mirror");
+        body.classList.add("is-seen");
 
         setTimeout(() => {
           el.endLine.classList.remove("fade");
@@ -703,10 +1042,10 @@
           applyReturned();
         }, 900);
       }, 1250);
-    }, 850);
+    }, 650);
   }
 
-  // the face is useless if it has to load when it arrives
+  // preload the face so it never decodes late
   new Image().src = "assets/face.jpg";
 
   /* ----------------------------------------------------------
@@ -718,16 +1057,23 @@
     totalScrolled += Math.abs(y - lastY);
     lastY = y;
 
-    progress = clamp(y / Math.max(pageHeight(), 1));
+    // Unlock the first abyss stretch right as the scrollbar hits ~90% in Act 4
+    if (abyssLevel < 1 && accessSection) {
+      const ar = accessSection.getBoundingClientRect();
+      if (ar.top < window.innerHeight * 0.52) unlockAbyss(1);
+    }
+
+    progress = clamp(y / Math.max(fullScrollSpan, 1));
     root.style.setProperty("--p", progress.toFixed(4));
 
     renderPresence(progress);
-    renderCounter();
+    updateCounterTarget();
     updateAudioLevel();
 
     const mid = y + window.innerHeight * 0.45;
     let next = 0;
     for (const a of acts) {
+      if (a.offsetHeight === 0) continue;
       if (mid >= a.offsetTop && mid < a.offsetTop + a.offsetHeight) {
         next = Number(a.dataset.stage) || 0;
         break;
@@ -739,7 +1085,10 @@
     renderRoom();
     renderEnd();
 
-    if (progress > 0.86) sessionStorage.setItem(SEEN_KEY, "1");
+    if (progress > 0.86 && !returned) {
+      returned = true;
+      writeSession(SEEN_KEY, "1");
+    }
     if (progress > 0.93) el.footCopy.textContent = t("foot.copyEnd");
 
     ticking = false;
@@ -752,16 +1101,22 @@
     }
   }
 
-  window.addEventListener("scroll", () => { noteInput(); onScroll(); }, { passive: true });
-  window.addEventListener("resize", onScroll, { passive: true });
-
-  setInterval(() => {
-    const next = Math.round(lerp(shownCount, targetCount, 0.18));
-    if (next !== shownCount) {
-      shownCount = next;
-      el.counter.textContent = shownCount.toLocaleString("en-US");
-    }
-  }, 90);
+  window.addEventListener(
+    "scroll",
+    () => {
+      noteInput();
+      onScroll();
+    },
+    { passive: true }
+  );
+  window.addEventListener(
+    "resize",
+    () => {
+      measureMetrics();
+      onScroll();
+    },
+    { passive: true }
+  );
 
   /* ----------------------------------------------------------
      Language switching
@@ -769,20 +1124,23 @@
 
   function setLang(next) {
     lang = SUPPORTED.includes(next) ? next : "en";
-    localStorage.setItem("still.lang", lang);
+    try {
+      localStorage.setItem("still.lang", lang);
+    } catch (_) {
+      /* ignore */
+    }
 
-    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    root.lang = lang === "zh" ? "zh-CN" : "en";
     body.dataset.lang = lang;
     el.langBtn.textContent = lang === "zh" ? "EN" : "中";
 
     applyCopy();
+    refreshDynamic();
     rebuildTextNodes();
     if (maxStage > 0) corruptText(maxStage);
 
+    measureMetrics();
     resetRoom();
-    refreshDynamic();
-
-    // the terminal line counts pixels; rebuild it if we are standing there
     if (stage >= 6) requestAnimationFrame(renderRoom);
   }
 
@@ -800,10 +1158,21 @@
     if (g) g.style.animation = "none";
   }
 
+  // Lock the lower abyss initially so the scrollbar looks like a normal short landing page
+  fullScrollSpan = rawPageSpan();
+  body.classList.add("abyss-locked");
+  initialPagePixels = document.documentElement.scrollHeight;
+
+  if (!returned) {
+    window.scrollTo(0, 0);
+  } else if (window.scrollY > initialPagePixels * 0.7) {
+    unlockAbyss(3);
+  }
+
   setLang(lang);
-
-  if (!returned) window.scrollTo(0, 0);
-
   frame();
-  window.addEventListener("load", frame);
+  window.addEventListener("load", () => {
+    measureMetrics();
+    frame();
+  });
 })();

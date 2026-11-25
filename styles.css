@@ -655,6 +655,14 @@ blockquote cite {
   opacity: 1;
 }
 
+/* ---------- non-euclidean scrollbar: the page keeps stretching ---------- */
+
+body.abyss-locked:not(.abyss-1) .act-collapse,
+body.abyss-locked:not(.abyss-2) .act-room,
+body.abyss-locked:not(.abyss-3) .act-end {
+  display: none;
+}
+
 /* ---------- 5 · collapse ---------- */
 
 .act-collapse {
@@ -743,7 +751,7 @@ blockquote cite {
 /* ---------- 7 · end ---------- */
 
 .act-end {
-  min-height: 220vh;
+  min-height: 240vh;
 }
 
 .end-sticky {
@@ -757,6 +765,7 @@ blockquote cite {
 }
 
 .end-line {
+  grid-area: 1 / 1;
   font-family: var(--display);
   font-size: clamp(1.35rem, 2.7vw, 1.95rem);
   letter-spacing: 0.005em;
@@ -767,7 +776,37 @@ blockquote cite {
               letter-spacing 3s var(--ease);
 }
 
-.end-line.fade { opacity: 0.15; }
+.end-line.fade { opacity: 0; }
+
+/* tiny low-contrast text on pure black glass so you lean in toward your reflection */
+.mirror-hint {
+  grid-area: 1 / 1;
+  margin: 0;
+  max-width: 34ch;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  line-height: 1.9;
+  letter-spacing: 0.16em;
+  color: #3d3a35;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 2.1s var(--ease);
+}
+
+.mirror-hint.on {
+  opacity: 0.78;
+}
+
+body.is-mirror {
+  background-color: #000000 !important;
+  animation: none !important;
+}
+
+body.is-mirror .figure { opacity: 0.03 !important; transition: opacity 1.4s var(--ease); }
+body.is-mirror .grain  { opacity: 0.018 !important; }
+body.is-mirror .presence { opacity: 0.12 !important; }
 
 /* ---------- the page notices when you stop ---------- */
 
@@ -979,27 +1018,9 @@ blockquote cite {
   .collapse-lines .cl:nth-child(4) { margin-left: 1.6rem; }
 
   .rl { font-size: 0.92rem; line-height: 1.95; }
-  .lang-btn {
-  min-width: 2.5rem;
-  text-align: center;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  padding: 0.42rem 0.72rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
-}
 
-.lang-btn:hover {
-  color: var(--ink);
-  border-color: var(--ink);
-}
-
-.nav-cta { margin-left: auto; }
+  .lang-btn { margin-left: auto; }
+  .nav-cta { margin-left: 0; }
 
   .act-hero { padding: 8rem 0 6rem; }
 
@@ -1066,6 +1087,12 @@ body[data-lang="zh"] .end-line {
   font-size: clamp(1.15rem, 2.2vw, 1.55rem);
 }
 
+body[data-lang="zh"] .mirror-hint {
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  max-width: 28em;
+}
+
 body[data-lang="zh"] blockquote p {
   font-size: clamp(1.05rem, 1.8vw, 1.26rem);
   line-height: 1.72;
@@ -1079,6 +1106,9 @@ body[data-lang="zh"] .rl {
 body[data-lang="zh"] .hero-lede,
 body[data-lang="zh"] .aside,
 body[data-lang="zh"] .lede { line-height: 1.9; }
+
+body[data-lang="zh"] .hero-lede { max-width: 20em; }
+body[data-lang="zh"] .aside { max-width: 23em; }
 
 body[data-lang="zh"] .fineprint { letter-spacing: 0.02em; }
 

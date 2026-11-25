@@ -42,6 +42,15 @@ including the damage already done to the text.
 | 5 | — | The background goes grey. Four sentences arrive one at a time and never retract. The block drifts as you scroll; the type is slightly off-register. |
 | 6 | — | The lights go out, the cursor disappears, and a terminal types three lines at you. One of them contradicts the page you are on. |
 | 7 | — | `You can stop now.` Then `Still here.` Then the dark starts breathing. |
+| 8 | — | Three and a half seconds after you stop scrolling, something fills the screen. Then it's gone, and the thing that was standing in the dark is still standing there. |
+
+## The two photographs
+
+`assets/face.jpg` is what arrives at the end. `assets/figure.jpg` is what has been standing
+in the dark since act 6 — it is a fixed background layer, so it does not scroll with the
+page. You move; it doesn't.
+
+Both are AI-generated for this project, not photographs of any person.
 
 ## Load-bearing pieces
 
@@ -62,14 +71,21 @@ fades in at the bottom of the screen:
 
 > You stopped. / 你停下来了。 → Good. → Keep still. → You're getting good at this.
 
-**The sound.** There is no audio file. Everything is synthesised on demand with WebAudio:
+**It arrives.** Reach the bottom, and the page gives you about three and a half seconds of
+quiet to feel finished. Then the screen fills with a face, the audio cuts out for one beat
+and comes back as a scream, and the whole frame shakes. It happens once per session. The
+hero you return to afterwards reads *"It's still here. It never left."*
+
+**The sound.** Apart from the two images there is no media. Everything is synthesised on
+demand with WebAudio:
 two sine tones a few Hz apart so the drone beats against itself, filtered noise for air,
 and a heartbeat whose interval tightens as you approach the bottom. It stays silent until
 you ask for it.
 
 ## Build
 
-Plain HTML, CSS and JavaScript. No build step, no dependencies, no images.
+Plain HTML, CSS and JavaScript. No build step, no dependencies. Two images, both in
+`assets/`.
 
 ```sh
 python3 -m http.server 8080

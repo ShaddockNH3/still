@@ -80,6 +80,7 @@
     idleLine: document.getElementById("idleLine"),
     soundToggle: document.getElementById("soundToggle"),
     soundLabel: document.getElementById("soundLabel"),
+    jump: document.getElementById("jump"),
   };
 
   const acts = [...document.querySelectorAll(".act")];
@@ -88,7 +89,10 @@
   const endSection = document.querySelector(".act-end");
 
   const SEEN_KEY = "still.returned";
-  const returned = sessionStorage.getItem(SEEN_KEY) === "1";
+  const FACE_KEY = "still.seen";
+
+  let returned = sessionStorage.getItem(SEEN_KEY) === "1";
+  let seenFace = sessionStorage.getItem(FACE_KEY) === "1";
 
   /* ----------------------------------------------------------
      Scroll state
@@ -102,6 +106,8 @@
   let ticking = false;
   let titleLocked = false;
   let endPhase = 0;
+  let jumped = false;
+  let jumpArmed = false;
 
   const pageHeight = () => document.documentElement.scrollHeight - window.innerHeight;
 
@@ -110,9 +116,15 @@
      ---------------------------------------------------------- */
 
   function applyReturned() {
-    el.heroEyebrow.textContent = t("ret.eyebrow");
-    el.heroTitle.textContent = t("ret.title");
-    el.heroLede.textContent = t("ret.lede");
+    if (seenFace) {
+      el.heroEyebrow.textContent = t("ret.eyebrow");
+      el.heroTitle.textContent = t("seen.title");
+      el.heroLede.textContent = t("seen.lede");
+    } else {
+      el.heroEyebrow.textContent = t("ret.eyebrow");
+      el.heroTitle.textContent = t("ret.title");
+      el.heroLede.textContent = t("ret.lede");
+    }
     el.heroCta.textContent = t("ret.cta");
     el.heroFine.textContent = t("ret.fine");
     el.navCta.textContent = t("ret.cta");
@@ -140,9 +152,11 @@
       el.terms.textContent = t("access.termsBad");
     }
 
-    if (returned) applyReturned();
+    if (returned || seenFace) applyReturned();
 
-    el.endLine.textContent = endPhase >= 1 ? t("end.still") : t("end.stop");
+    el.endLine.textContent = jumped
+      ? t("face.after")
+      : endPhase >= 1 ? t("end.still") : t("end.stop");
 
     if (progress > 0.93) el.footCopy.textContent = t("foot.copyEnd");
 
@@ -420,6 +434,12 @@
       endPhase = 2;
       el.endLine.classList.add("fade");
     }
+
+    // you reached the end. it gives you three seconds to feel safe.
+    if (!jumpArmed && !jumped && !seenFace && endPhase === 2 && p > 0.8) {
+      jumpArmed = true;
+      setTimeout(triggerJump, 3600);
+    }
   }
 
   /* ----------------------------------------------------------
@@ -584,6 +604,110 @@
   }
 
   el.soundToggle.addEventListener("click", enableSound);
+
+  /* ----------------------------------------------------------
+     The thing that has been behind you the whole time
+     ---------------------------------------------------------- */
+
+  function scream() {
+    let ctx = audio ? audio.ctx : null;
+
+    // it makes its own sound whether or not you asked for any
+    if (!ctx) {
+      const made = startAudio();
+      if (!made) return;
+      audio = made;
+      ctx = audio.ctx;
+    }
+
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+
+    const now = ctx.currentTime;
+    const out = ctx.destination;
+
+    const len = Math.floor(ctx.sampleRate * 1.4);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 2500;
+    bp.Q.value = 0.6;
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 650;
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.55, now + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.22, now + 0.2);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
+
+    src.connect(bp);
+    bp.connect(hp);
+    hp.connect(g);
+    g.connect(out);
+    src.start(now);
+    src.stop(now + 1.2);
+
+    const o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(150, now);
+    o.frequency.exponentialRampToValueAtTime(24, now + 0.75);
+
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0.0001, now);
+    og.gain.exponentialRampToValueAtTime(0.85, now + 0.008);
+    og.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
+
+    o.connect(og);
+    og.connect(out);
+    o.start(now);
+    o.stop(now + 1);
+  }
+
+  function triggerJump() {
+    if (jumped) return;
+    if (document.hidden) {
+      setTimeout(triggerJump, 1500);
+      return;
+    }
+
+    jumped = true;
+    seenFace = true;
+    sessionStorage.setItem(FACE_KEY, "1");
+
+    // everything goes quiet for one beat first. that is the part that works.
+    if (audio) {
+      audio.master.gain.cancelScheduledValues(audio.ctx.currentTime);
+      audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.06);
+    }
+
+    setTimeout(() => {
+      if (!el.jump) return;
+      el.jump.classList.add("on");
+      scream();
+
+      setTimeout(() => {
+        el.jump.classList.remove("on");
+        document.body.classList.add("is-seen");
+
+        setTimeout(() => {
+          el.endLine.classList.remove("fade");
+          el.endLine.textContent = t("face.after");
+          applyReturned();
+        }, 900);
+      }, 1250);
+    }, 850);
+  }
+
+  // the face is useless if it has to load when it arrives
+  new Image().src = "assets/face.jpg";
 
   /* ----------------------------------------------------------
      Frame

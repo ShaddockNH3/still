@@ -67,6 +67,82 @@ a { color: inherit; text-decoration: none; }
 
 ::selection { background: var(--ink); color: var(--paper); }
 
+/* ---------- the one standing in the dark ---------- */
+
+.figure {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: url("assets/figure.jpg") center 45% / cover no-repeat;
+  opacity: 0;
+  filter: saturate(0.45) brightness(0.72) blur(0.5px);
+  transition: opacity 4.5s var(--ease);
+  will-change: opacity;
+}
+
+.is-stage-6 .figure { opacity: 0.28; }
+.is-stage-7 .figure { opacity: 0.13; }
+
+/* ---------- it ---------- */
+
+.jump {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  pointer-events: none;
+  background: #050506;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.jump.on {
+  opacity: 1;
+  visibility: visible;
+}
+
+.jump-shake {
+  position: absolute;
+  inset: -8%;
+}
+
+.jump-frame {
+  position: absolute;
+  inset: 0;
+  background: url("assets/face.jpg") center 42% / cover no-repeat;
+  opacity: 0;
+  transform: scale(1.22);
+  filter: contrast(1.18) saturate(0.7) brightness(1.06);
+}
+
+.jump.on .jump-shake {
+  animation: jumpShake 0.5s steps(4) both;
+}
+
+.jump.on .jump-frame {
+  animation: faceHit 1.15s linear both;
+}
+
+@keyframes faceHit {
+  0%   { opacity: 0; transform: scale(1.22); }
+  3%   { opacity: 1; }
+  8%   { opacity: 1; transform: scale(1.14); }
+  62%  { opacity: 1; transform: scale(1.02); }
+  66%  { opacity: 0; }
+  72%  { opacity: 1; transform: scale(1.0); }
+  90%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.99); }
+}
+
+@keyframes jumpShake {
+  0%   { transform: translate(0, 0) scale(1.02); }
+  20%  { transform: translate(-1.4%, 0.9%) scale(1.03); }
+  40%  { transform: translate(1.1%, -1.1%) scale(1.02); }
+  60%  { transform: translate(-0.9%, -0.7%) scale(1.04); }
+  80%  { transform: translate(1.3%, 0.8%) scale(1.02); }
+  100% { transform: translate(0, 0) scale(1.02); }
+}
+
 /* ---------- atmosphere ---------- */
 
 .grain {
@@ -247,6 +323,7 @@ body::after {
 
 .act {
   position: relative;
+  z-index: 2;
 }
 
 .wrap {
@@ -1004,6 +1081,8 @@ body[data-lang="zh"] .aside,
 body[data-lang="zh"] .lede { line-height: 1.9; }
 
 body[data-lang="zh"] .fineprint { letter-spacing: 0.02em; }
+
+body[data-lang="zh"] .terms { max-width: 31em; line-height: 2; }
 
 /* off-register shadow reads as a smudge on dense CJK strokes,
    so the Chinese version keeps a much lighter touch */
